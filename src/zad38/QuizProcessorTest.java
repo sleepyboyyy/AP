@@ -1,0 +1,101 @@
+package zad38;
+//Да се имплементира класа QuizProcessor со единствен метод Map<String, Double> processAnswers(InputStream is).
+//
+//Методот потребно е од влезниот поток is да ги прочита одговорите на студентите на еден квиз. Информациите за квизовите се дадени во посебни редови и се во следниот формат:
+//
+//ID; C1, C2, C3, C4, C5, … ,Cn; A1, A2, A3, A4, A5, …,An.
+//каде што ID е индексот на студентот, Ci е точниот одговор на i-то прашање, а Ai е одговорот на студентот на i-то прашање. Студентот добива по 1 поен за точен одговор, а по -0.25 за секој неточен одговор. Бројот на прашања n може да биде различен во секој квиз.
+//
+//Со помош на исклучоци да се игнорира квиз во кој бројот на точни одговори е различен од бројот на одговорите на студентот.
+//
+//Во резултантната мапа, клучеви се индексите на студентите, а вредности се поените кои студентот ги освоил. Пример ако студентот на квиз со 6 прашања, има точни 3 прашања, а неточни 3 прашања, студентот ќе освои 3*1 - 3*0.25 = 2.25.
+
+import java.io.BufferedInputStream;
+import java.io.BufferedReader;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.util.*;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+
+class InvalidQuizEntryException extends Exception{
+    public InvalidQuizEntryException(String msg) {
+        super(msg);
+    }
+}
+
+class Quiz {
+    private final String student_id;
+    private final List<String> correct_answers;
+    private final List<String> student_answers;
+    private double points;
+
+    public Quiz(String student_id, List<String> correct_answers, List<String> student_answers) throws InvalidQuizEntryException {
+        if (correct_answers.size() != student_answers.size()) throw new InvalidQuizEntryException("A quiz must have same number of correct and selected answers");
+
+        this.student_id = student_id;
+        this.correct_answers = correct_answers;
+        this.student_answers = student_answers;
+
+        calculateAnswers(correct_answers, student_answers);
+    }
+
+    public static Quiz addQuiz(String line) throws InvalidQuizEntryException {
+        String[] data = line.split(";");
+        List<String> correct_answers = new ArrayList<>(Arrays.asList(data[1].split(",")));
+        List<String> student_answers = new ArrayList<>(Arrays.asList(data[2].split(",")));
+
+
+        return new Quiz(data[0], correct_answers, student_answers);
+    }
+
+    public void calculateAnswers(List<String> correct_answers, List<String> student_answers) {
+        IntStream.range(0, correct_answers.size())
+            .forEach(i -> {
+                if (correct_answers.get(i).equals(student_answers.get(i))) points++;
+                else points -= 0.25;
+        });
+    }
+
+    public String getStudent_id() {
+        return student_id;
+    }
+
+    public List<String> getCorrect_answers() {
+        return correct_answers;
+    }
+
+    public List<String> getStudent_answers() {
+        return student_answers;
+    }
+
+    public double getPoints() {
+        return points;
+    }
+}
+
+class QuizProcessor {
+
+    //200000;C, D, D, D, A, C, B, D, D;C, D, D, D, D, B, C, D, A : 200000 -> 4.00
+    public static Map<String, Double> processAnswers(InputStream is) {
+        BufferedReader reader = new BufferedReader(new InputStreamReader(is));
+        return reader.lines().map(line -> {
+
+                try {
+                    return Quiz.addQuiz(line);
+                } catch (InvalidQuizEntryException exception) {
+                    System.out.println(exception.getMessage());
+                    return null;
+                }
+
+            }
+        ).filter(Objects::nonNull)
+        .collect(Collectors.toMap(Quiz::getStudent_id, Quiz::getPoints, Double::sum, TreeMap::new));
+    }
+}
+
+public class QuizProcessorTest {
+    public static void main(String[] args) {
+        QuizProcessor.processAnswers(System.in).forEach((k, v) -> System.out.printf("%s -> %.2f%n", k, v));
+    }
+}
